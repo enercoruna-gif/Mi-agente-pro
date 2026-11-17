@@ -19,7 +19,6 @@ COOKIES_FILE = "cookies.json"
 MEMORY_FILE = "empresa_memoria.json"
 CHAT_HISTORY_FILE = "chat_history.json"
 
-# --- DICCIONARIO DE MODELOS OBLIGATORIO ---
 AVAILABLE_MODELS = {
     "lite": "gemini-3.8-flash",
     "pro": "gemini-pro"
@@ -189,11 +188,12 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     llm_actual = obtener_llm_activo()
 
     if "NAVEGACION" in tipo_accion:
-        await update.message.reply_text(f"🌐 [Modo Navegación] Arrancando con *{current_model_key.upper()}* y aplicando sesión de Google...")
+        await update.message.reply_text(f"🌐 [Modo Navegación] Ejecutando tarea con *{current_model_key.upper()}* y aplicando sesión...")
         try:
             tarea_completa = f"{contexto_corporativo}\n\nHISTORIAL RECIENTE:\n{historial_reciente}\n\nTAREA WEB:\n{texto_usuario}"
             
-            browser = Browser(headless=False, extra_chromium_args=["--no-sandbox", "--disable-dev-shm-usage"])
+            # CONFIGURACIÓN HEADLESS PURA (Elimina conflictos de VNC en Render)
+            browser = Browser(headless=True, extra_chromium_args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
             agent = Agent(task=tarea_completa, browser=browser, llm=llm_actual)
             
             await inyectar_cookies_si_existen(browser)
