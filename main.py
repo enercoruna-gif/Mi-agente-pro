@@ -60,7 +60,7 @@ def guardar_datos():
     except Exception as e:
         logging.error(f"Error al guardar datos en disco: {e}")
 
-# --- CARGA LOCAL DE COOKIES (DIRECTO DEL REPOSITORIO) ---
+# --- VERIFICACIÓN LOCAL DE COOKIES (SIN LLAMADAS A GITHUB) ---
 def verificar_cookies_locales():
     if os.path.exists(COOKIES_FILE):
         logging.info("✅ Archivo cookies.json detectado localmente en el proyecto.")
