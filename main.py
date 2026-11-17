@@ -1,7 +1,6 @@
 import os
 import logging
 import json
-import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from browser_use import Browser, Agent
@@ -16,15 +15,13 @@ logging.basicConfig(
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 ALLOWED_USER_ID = os.getenv("ALLOWED_USER_ID")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GH_TOKEN = os.getenv("GH_TOKEN")
-GH_REPO = os.getenv("GH_REPO")
 COOKIES_FILE = "cookies.json"
 MEMORY_FILE = "empresa_memoria.json"
 CHAT_HISTORY_FILE = "chat_history.json"
 
-# --- DICCIONARIO DE MODELOS ACTUALIZADO ---
+# --- DICCIONARIO DE MODELOS VIGENTES ---
 AVAILABLE_MODELS = {
-    "lite": "gemini-2.5-flash",   # Usamos flash como base estable y disponible
+    "lite": "gemini-2.5-flash",
     "flash": "gemini-2.5-flash",
     "pro": "gemini-pro"
 }
@@ -63,24 +60,12 @@ def guardar_datos():
     except Exception as e:
         logging.error(f"Error al guardar datos en disco: {e}")
 
-def cargar_cookies_desde_github():
-    if not GH_TOKEN or not GH_REPO:
-        logging.info("GH_TOKEN o GH_REPO no configurados. Saltando descarga de cookies.")
-        return
-    try:
-        url = f"https://api.github.com/repos/{GH_REPO}/contents/{COOKIES_FILE}"
-        headers = {"Authorization": f"Bearer {GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
-        r = requests.get(url, headers=headers)
-        if r.status_code == 200:
-            import base64
-            content = base64.b64decode(r.json()["content"])
-            with open(COOKIES_FILE, "wb") as f:
-                f.write(content)
-            logging.info("Cookies descargadas de GitHub con éxito.")
-        else:
-            logging.warning(f"No se pudieron descargar cookies de GitHub (Código: {r.status_code}).")
-    except Exception as e:
-        logging.error(f"Error al descargar cookies: {e}")
+# --- CARGA LOCAL DE COOKIES (DIRECTO DEL REPOSITORIO) ---
+def verificar_cookies_locales():
+    if os.path.exists(COOKIES_FILE):
+        logging.info("✅ Archivo cookies.json detectado localmente en el proyecto.")
+    else:
+        logging.warning("⚠️ No se encuentra el archivo cookies.json en la ruta local.")
 
 async def inyectar_cookies_si_existen(browser_instance):
     if not os.path.exists(COOKIES_FILE):
@@ -106,7 +91,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🤖 **¡Asistente Grok & Cookies Activo!**\n"
         f"• Modelo actual: *{current_model_key.upper()}*\n\n"
-        "💬 Háblame con total normalidad. Mantengo el hilo de chat, memorizo datos clave de tu empresa y navego por web usando tu cuenta de Google.\n\n"
+        "💬 Háblame con total normalidad. Mantengo el hilo de chat, memorizo datos clave y navego usando tu sesión de Google (`enercoruna`).\n\n"
         "📋 **Comandos:** `/memoria`, `/olvidar <clave>`, `/modelo [lite|flash|pro]`"
     )
 
@@ -250,7 +235,7 @@ def main():
         return
 
     logging.info("Iniciando bot...")
-    cargar_cookies_desde_github()
+    verificar_cookies_locales()
     cargar_datos()
 
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
