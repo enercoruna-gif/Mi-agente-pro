@@ -1,6 +1,6 @@
-telegram
-python-telegram-bot
-browser-use
+streamlit
+google-genai
 langchain-google-genai
-requests
+browser-use
 playwright
+pydantic
