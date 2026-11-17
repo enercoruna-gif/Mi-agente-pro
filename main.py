@@ -20,42 +20,51 @@ GH_TOKEN = os.getenv("GH_TOKEN")
 GH_REPO = os.getenv("GH_REPO")
 COOKIES_FILE = "cookies.json"
 MEMORY_FILE = "empresa_memoria.json"
+CHAT_HISTORY_FILE = "chat_history.json"
 
 # --- DICCIONARIO DE MODELOS DE TRES NIVELES ---
 AVAILABLE_MODELS = {
-    "lite": "gemini-2.5-flash-lite",   # Para tareas repetitivas de bajo consumo y análisis de memoria
+    "lite": "gemini-2.5-flash-lite",   # Para análisis rápido, chat fluido y bajo consumo
     "flash": "gemini-flash",       # Para razonamiento estándar y decisiones lógicas
     "pro": "gemini-pro"            # Para programación pesada y creación de webs
 }
 
-# Estado global para recordar qué modelo está activo (arranca por defecto en "lite")
+# Estado global del modelo activo (arranca por defecto en "lite")
 current_model_key = "lite"
 
-# Memoria corporativa en RAM
+# Diccionarios en memoria RAM
 empresa_memoria = {}
+historial_conversacion = []  # Almacena las últimas interacciones para dar contexto de chat
 
 def obtener_llm_activo():
     model_name = AVAILABLE_MODELS.get(current_model_key, "gemini-flash")
     return ChatGoogleGenerativeAI(model=model_name, google_api_key=GEMINI_API_KEY)
 
-# --- SISTEMA DE MEMORIA PERSISTENTE ---
-def cargar_memoria():
-    global empresa_memoria
+# --- PERSISTENCIA (MEMORIA Y CHAT) ---
+def cargar_datos():
+    global empresa_memoria, historial_conversacion
     if os.path.exists(MEMORY_FILE):
         try:
             with open(MEMORY_FILE, "r", encoding="utf-8") as f:
                 empresa_memoria = json.load(f)
-            logging.info("Memoria corporativa cargada localmente.")
         except Exception as e:
-            logging.error(f"Error al leer memoria local: {e}")
+            logging.error(f"Error al leer memoria corporativa: {e}")
+            
+    if os.path.exists(CHAT_HISTORY_FILE):
+        try:
+            with open(CHAT_HISTORY_FILE, "r", encoding="utf-8") as f:
+                historial_conversacion = json.load(f)
+        except Exception as e:
+            logging.error(f"Error al leer historial de chat: {e}")
 
-def guardar_memoria_disco():
+def guardar_datos():
     try:
         with open(MEMORY_FILE, "w", encoding="utf-8") as f:
             json.dump(empresa_memoria, f, ensure_ascii=False, indent=4)
-        logging.info("Memoria corporativa guardada en disco.")
+        with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(historial_conversacion[-20:], f, ensure_ascii=False, indent=4) # Guardar los últimos 20 turns
     except Exception as e:
-        logging.error(f"Error al guardar memoria: {e}")
+        logging.error(f"Error al guardar datos en disco: {e}")
 
 def cargar_cookies_desde_github():
     if not GH_TOKEN or not GH_REPO:
@@ -73,18 +82,18 @@ def cargar_cookies_desde_github():
     except Exception as e:
         logging.error(f"Error al descargar cookies: {e}")
 
-# --- COMANDOS BÁSICOS ---
+# --- COMANDOS DE TELEGRAM ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     if ALLOWED_USER_ID and user_id != str(ALLOWED_USER_ID):
         await update.message.reply_text("No tienes autorización para usar este bot.")
         return
     await update.message.reply_text(
-        f"🚀 **¡Sistema Autónoma de Empresa Listo!**\n"
+        f"🤖 **¡Asistente Estilo Grok & Agente Web Listo!**\n"
         f"• Modelo activo: *{current_model_key.upper()}*\n\n"
-        f"💡 **Cómo funciona:** Habla conmigo con total normalidad. Si me das datos importantes, directrices o plantillas, **los recordaré automáticamente para siempre**.\n\n"
+        f"💬 **Cómo interactuar:** Háblame con total normalidad. Mantengo el hilo de la conversación, aprendo de tu empresa automáticamente y ejecuto tareas web si me lo pides.\n\n"
         f"📋 **Comandos útiles:**\n"
-        f"• `/memoria` - Ver todo lo que tengo guardado sobre tu empresa.\n"
+        f"• `/memoria` - Ver directrices guardadas sobre tu empresa.\n"
         f"• `/olvidar <clave>` - Borrar un dato específico.\n"
         f"• `/modelo [lite|flash|pro]` - Cambiar de modelo al vuelo."
     )
@@ -137,12 +146,12 @@ async def olvidar_memoria(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clave = context.args[0].lower()
     if clave in empresa_memoria:
         del empresa_memoria[clave]
-        guardar_memoria_disco()
+        guardar_datos()
         await update.message.reply_text(f"🗑️ Clave `{clave}` eliminada de la memoria.")
     else:
         await update.message.reply_text(f"⚠️ No se encontró la clave `{clave}` en la memoria.")
 
-# --- PROCESAMIENTO INTELIGENTE Y AUTÓNOMO DE MENSAJES ---
+# --- PROCESAMIENTO INTELIGENTE (ESTILO GROK + NAVEGACIÓN) ---
 async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     if ALLOWED_USER_ID and user_id != str(ALLOWED_USER_ID):
@@ -150,92 +159,78 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     texto_usuario = update.message.text
 
-    # 1. Analizar de forma autónoma si el mensaje contiene información corporativa a recordar
+    # 1. Auto-aprender información corporativa si el usuario la menciona
     try:
         analizador_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", google_api_key=GEMINI_API_KEY)
         prompt_analisis = f"""
         Analiza el siguiente mensaje del usuario. Determina si contiene información clave de su empresa, directrices de gestión, tonos de voz, datos de contacto o plantillas de correo que deba recordar para el futuro.
-        
-        Si NO contiene información relevante para guardar, responde exactamente con la palabra: NADA.
-        Si SÍ contiene información, devuélvela estrictamente en formato JSON válido de una sola línea con una clave descriptiva corta y el contenido, así:
-        {{"clave": "nombre_corto_del_dato", "contenido": "el texto completo a recordar"}}
-
-        Mensaje del usuario: "{texto_usuario}"
+        Si NO contiene información relevante, responde exactamente con la palabra: NADA.
+        Si SÍ contiene información, devuélvela estrictamente en formato JSON válido de una sola línea: {{"clave": "nombre_corto", "contenido": "texto a recordar"}}
+        Mensaje: "{texto_usuario}"
         """
-        
-        respuesta_analisis = analizador_llm.invoke(prompt_analisis).content.strip()
-        
-        if "NADA" not in respuesta_analisis:
-            # Limpiar posible formato de código markdown si el modelo lo añade
-            respuesta_limpia = respuesta_analisis.replace("```json", "").replace("```", "").strip()
-            datos_json = json.loads(respuesta_limpia)
-            
-            clave = datos_json.get("clave")
-            contenido = datos_json.get("contenido")
-            
-            if clave and contenido:
-                empresa_memoria[clave] = contenido
-                guardar_memoria_disco()
-                await update.message.reply_text(f"💾 *[Memorizado automáticamente]* -> Guardado en `{clave}`")
+        resp_analisis = analizador_llm.invoke(prompt_analisis).content.strip()
+        if "NADA" not in resp_analisis:
+            resp_limpia = resp_analisis.replace("```json", "").replace("```", "").strip()
+            datos_json = json.loads(resp_limpia)
+            if datos_json.get("clave") and datos_json.get("contenido"):
+                empresa_memoria[datos_json.get("clave")] = datos_json.get("contenido")
+                guardar_datos()
+                await update.message.reply_text(f"💾 *[Memorizado automáticamente]* -> `{datos_json.get('clave')}`")
     except Exception as e:
         logging.error(f"Error en auto-memoria: {e}")
 
-    # 2. Ejecutar la tarea de navegación o respuesta aplicando todo el contexto corporativo acumulado
-    await update.message.reply_text(f"🔍 Procesando con el modelo *{current_model_key.upper()}* aplicando contexto empresarial...")
-
+    # 2. Determinar si el mensaje requiere navegar por la web o es una consulta conversacional/chat puro
     try:
-        contexto_corporativo = "CONTEXTO DE LA EMPRESA Y DIRECTRICES:\n"
-        if empresa_memoria:
-            for k, v in empresa_memoria.items():
-                contexto_corporativo += f"- {k}: {v}\n"
-        else:
-            contexto_corporativo += "No hay directrices especiales guardadas todavía.\n"
+        router_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", google_api_key=GEMINI_API_KEY)
+        prompt_router = f"""
+        Clasifica la siguiente petición del usuario en una de estas dos categorías exactas:
+        - NAVEGACION (si pide explícitamente entrar a una web, buscar empresas, hacer scraping, enviar correos automatizados en una plataforma o interactuar con una interfaz visual web).
+        - CHAT (si es una pregunta, redacción de textos, debate, consulta de estrategia o conversación general que no requiere abrir el navegador).
+        Responde SOLAMENTE con la palabra NAVEGACION o CHAT.
+        Petición: "{texto_usuario}"
+        """
+        tipo_accion = router_llm.invoke(prompt_router).content.strip().upper()
+    except Exception:
+        tipo_accion = "CHAT"
 
-        tarea_con_contexto = f"{contexto_corporativo}\nPETICIÓN DEL USUARIO:\n{texto_usuario}"
+    # Preparar el contexto corporativo y el historial reciente de chat
+    contexto_corporativo = "DIRECTRICES EMPRESARIALES:\n" + (json.dumps(empresa_memoria, ensure_ascii=False) if empresa_memoria else "Ninguna")
+    historial_reciente = "\n".join([f"{h['rol']}: {h['texto']}" for h in historial_conversacion[-6:]])
 
-        llm_actual = obtener_llm_activo()
+    llm_actual = obtener_llm_activo()
 
-        browser = Browser(
-            headless=False,
-            extra_chromium_args=["--no-sandbox", "--disable-dev-shm-usage"]
-        )
+    if "NAVEGACION" in tipo_accion:
+        await update.message.reply_text(f"🌐 [Modo Navegación] Ejecutando tarea con *{current_model_key.upper()}*...")
+        try:
+            tarea_completa = f"{contexto_corporativo}\n\nHISTORIAL RECIENTE:\n{historial_reciente}\n\nTAREA WEB A EJECUTAR:\n{texto_usuario}"
+            
+            browser = Browser(headless=False, extra_chromium_args=["--no-sandbox", "--disable-dev-shm-usage"])
+            agent = Agent(task=tarea_completa, browser=browser, llm=llm_actual)
+            result = await agent.run()
+            
+            respuesta_bot = str(result)
+            await update.message.reply_text(f"✨ **Resultado web:**\n\n{respuesta_bot}")
+        except Exception as e:
+            logging.error(f"Error en navegador: {e}")
+            await update.message.reply_text(f"❌ Error ejecutando la tarea web: {e}")
+    else:
+        # Modo Chat conversacional puro (estilo Grok instantáneo)
+        await update.message.reply_text(f"💭 Pensando con *{current_model_key.upper()}*...")
+        try:
+            prompt_chat = f"""
+            Eres un asistente ejecutivo y de estrategia empresarial avanzado, inteligente y directo (estilo Grok).
+            {contexto_corporativo}
+            
+            HISTORIAL DE CONVERSACIÓN RECIENTE:
+            {historial_reciente}
+            
+            NUEVO MENSAJE DEL USUARIO:
+            {texto_usuario}
+            """
+            respuesta_bot = llm_actual.invoke(prompt_chat).content
+            await update.message.reply_text(respuesta_bot)
+        except Exception as e:
+            logging.error(f"Error en chat: {e}")
+            await update.message.reply_text(f"❌ Error procesando el mensaje: {e}")
 
-        agent = Agent(
-            task=tarea_con_contexto,
-            browser=browser,
-            llm=llm_actual
-        )
-        
-        result = await agent.run()
-        await update.message.reply_text(f"✨ **Resultado:**\n\n{result}")
-
-    except Exception as e:
-        logging.error(f"Error al ejecutar el agente: {e}")
-        await update.message.reply_text(f"❌ Error al ejecutar la tarea: {e}")
-
-def main():
-    if not TELEGRAM_TOKEN:
-        logging.critical("¡ERROR CRÍTICO! Falta el TELEGRAM_TOKEN en las variables de entorno.")
-        return
-
-    logging.info("Iniciando servicios del bot...")
-    cargar_cookies_desde_github()
-    cargar_memoria()
-
-    if not GEMINI_API_KEY:
-        logging.warning("Advertencia: GEMINI_API_KEY no está definida.")
-
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    
-    # Registro de manejadores
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("modelo", cambiar_modelo))
-    app.add_handler(CommandHandler("memoria", ver_memoria))
-    app.add_handler(CommandHandler("olvidar", olvidar_memoria))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), manejar_mensaje))
-
-    logging.info("Bot autónomo con memoria inteligente iniciado en modo polling...")
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
+    # Guardar en el historial de chat persist
