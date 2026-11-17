@@ -11,7 +11,8 @@ sleep 2
 fluxbox &
 
 # Iniciar x11vnc usando -auth guess para evitar errores de cookies de autenticación
-x11vnc -display :99 -auth guess -forever -shared -rfbport 5900 &
+x11vnc -display :99 -nopw -forever -shared -rfbport 5900 &
+
 
 # Iniciar servidor noVNC / websockify en el puerto 10000 requerido por Render
 websockify --web=/usr/share/novnc/ 10000 localhost:5900 &
