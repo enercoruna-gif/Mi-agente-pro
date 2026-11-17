@@ -1,0 +1,6 @@
+browser-use
+langchain-google-genai
+langchain-openai
+python-telegram-bot
+requests
+playwright
