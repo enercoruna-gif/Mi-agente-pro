@@ -19,10 +19,9 @@ COOKIES_FILE = "cookies.json"
 MEMORY_FILE = "empresa_memoria.json"
 CHAT_HISTORY_FILE = "chat_history.json"
 
-# --- DICCIONARIO DE MODELOS VIGENTES ---
+# --- DICCIONARIO DE MODELOS ESTABLE ---
 AVAILABLE_MODELS = {
     "lite": "gemini-2.5-flash",
-    "flash": "gemini-2.5-flash",
     "pro": "gemini-pro"
 }
 
@@ -32,7 +31,7 @@ empresa_memoria = {}
 historial_conversacion = []
 
 def obtener_llm_activo():
-    model_name = AVAILABLE_MODELS.get(current_model_key, "gemini-3.8-flash")
+    model_name = AVAILABLE_MODELS.get(current_model_key, "gemini-2.5-flash")
     return ChatGoogleGenerativeAI(model=model_name, google_api_key=GEMINI_API_KEY)
 
 def cargar_datos():
@@ -60,7 +59,6 @@ def guardar_datos():
     except Exception as e:
         logging.error(f"Error al guardar datos en disco: {e}")
 
-# --- VERIFICACIÓN LOCAL DE COOKIES ---
 def verificar_cookies_locales():
     if os.path.exists(COOKIES_FILE):
         logging.info("✅ Archivo cookies.json detectado localmente en el proyecto.")
@@ -92,7 +90,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🤖 **¡Asistente Grok & Cookies Activo!**\n"
         f"• Modelo actual: *{current_model_key.upper()}*\n\n"
         "💬 Háblame con total normalidad. Mantengo el hilo de chat, memorizo datos clave y navego usando tu sesión de Google (`enercoruna`).\n\n"
-        "📋 **Comandos:** `/memoria`, `/olvidar <clave>`, `/modelo [lite|flash|pro]`"
+        "📋 **Comandos:** `/memoria`, `/olvidar <clave>`, `/modelo [lite|pro]`"
     )
 
 async def cambiar_modelo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -106,7 +104,7 @@ async def cambiar_modelo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"ℹ️ Modelo actual: *{current_model_key.upper()}*\n"
             f"Disponibles: {modelos_str}\n"
-            "Uso: `/modelo lite`, `/modelo flash` o `/modelo pro`"
+            "Uso: `/modelo lite` o `/modelo pro`"
         )
         return
 
@@ -115,7 +113,7 @@ async def cambiar_modelo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         current_model_key = nuevo_modelo
         await update.message.reply_text(f"✅ ¡Modelo cambiado con éxito a: *{current_model_key.upper()}*!")
     else:
-        await update.message.reply_text("❌ Modelo no reconocido. Usa `/modelo lite`, `/modelo flash` o `/modelo pro`.")
+        await update.message.reply_text("❌ Modelo no reconocido. Usa `/modelo lite` o `/modelo pro`.")
 
 async def ver_memoria(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
@@ -157,7 +155,7 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     respuesta_bot = "Error procesando la solicitud."
 
     try:
-        analizador_llm = ChatGoogleGenerativeAI(model="gemini-3.8-flash", google_api_key=GEMINI_API_KEY)
+        analizador_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GEMINI_API_KEY)
         prompt_analisis = f"""
         Analiza el mensaje del usuario. Si contiene información clave de su empresa, directrices o plantillas a recordar, responde estrictamente en JSON: {{"clave": "nombre_corto", "contenido": "texto"}}
         Si no hay nada relevante, responde exactamente: NADA.
@@ -175,7 +173,7 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error(f"Error en auto-memoria: {e}")
 
     try:
-        router_llm = ChatGoogleGenerativeAI(model="gemini-3.8-flash", google_api_key=GEMINI_API_KEY)
+        router_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GEMINI_API_KEY)
         prompt_router = f"""
         Clasifica la petición en: NAVEGACION (si pide entrar a una web, buscar leads, hacer acciones visuales) o CHAT (si es charla, redactar correos o estrategia).
         Responde SOLAMENTE NAVEGACION o CHAT.
@@ -240,12 +238,19 @@ def main():
 
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     
+    # Limpiar actualizaciones pendientes para evitar bloqueos al arrancar
+    try:
+        app.bot.delete_webhook(drop_pending_updates=True)
+    except Exception:
+        pass
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("modelo", cambiar_modelo))
     app.add_handler(CommandHandler("memoria", ver_memoria))
     app.add_handler(CommandHandler("olvidar", olvidar_memoria))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), manejar_mensaje))
 
+    logging.info("Bot arrancado y escuchando con éxito.")
     app.run_polling()
 
 if __name__ == "__main__":
