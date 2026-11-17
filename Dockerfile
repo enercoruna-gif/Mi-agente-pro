@@ -25,6 +25,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY --chown=user . .
 
-EXPOSE 7860
+EXPOSE 10000
 
+# Usamos un script de arranque o adaptamos el puerto
 CMD ["bash", "start.sh"]
+
