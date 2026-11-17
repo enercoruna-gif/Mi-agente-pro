@@ -19,9 +19,9 @@ COOKIES_FILE = "cookies.json"
 MEMORY_FILE = "empresa_memoria.json"
 CHAT_HISTORY_FILE = "chat_history.json"
 
-# --- DICCIONARIO DE MODELOS ESTABLE ---
+# --- DICCIONARIO DE MODELOS OBLIGATORIO ---
 AVAILABLE_MODELS = {
-    "lite": "gemini-2.5-flash",
+    "lite": "gemini-3.8-flash",
     "pro": "gemini-pro"
 }
 
@@ -31,7 +31,7 @@ empresa_memoria = {}
 historial_conversacion = []
 
 def obtener_llm_activo():
-    model_name = AVAILABLE_MODELS.get(current_model_key, "gemini-2.5-flash")
+    model_name = AVAILABLE_MODELS.get(current_model_key, "gemini-3.8-flash")
     return ChatGoogleGenerativeAI(model=model_name, google_api_key=GEMINI_API_KEY)
 
 def cargar_datos():
@@ -155,7 +155,7 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     respuesta_bot = "Error procesando la solicitud."
 
     try:
-        analizador_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GEMINI_API_KEY)
+        analizador_llm = ChatGoogleGenerativeAI(model="gemini-3.8-flash", google_api_key=GEMINI_API_KEY)
         prompt_analisis = f"""
         Analiza el mensaje del usuario. Si contiene información clave de su empresa, directrices o plantillas a recordar, responde estrictamente en JSON: {{"clave": "nombre_corto", "contenido": "texto"}}
         Si no hay nada relevante, responde exactamente: NADA.
@@ -173,7 +173,7 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error(f"Error en auto-memoria: {e}")
 
     try:
-        router_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GEMINI_API_KEY)
+        router_llm = ChatGoogleGenerativeAI(model="gemini-3.8-flash", google_api_key=GEMINI_API_KEY)
         prompt_router = f"""
         Clasifica la petición en: NAVEGACION (si pide entrar a una web, buscar leads, hacer acciones visuales) o CHAT (si es charla, redactar correos o estrategia).
         Responde SOLAMENTE NAVEGACION o CHAT.
@@ -238,7 +238,6 @@ def main():
 
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     
-    # Limpiar actualizaciones pendientes para evitar bloqueos al arrancar
     try:
         app.bot.delete_webhook(drop_pending_updates=True)
     except Exception:
