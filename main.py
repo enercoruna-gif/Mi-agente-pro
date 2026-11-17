@@ -53,9 +53,18 @@ def main():
     logging.info("Iniciando servicios del bot...")
     cargar_cookies_desde_github()
 
-    # Comprobación de la clave de Gemini
     if not GEMINI_API_KEY:
         logging.warning("Advertencia: GEMINI_API_KEY no está definida.")
+
+    # Inicialización limpia compatible con browser-use 1.0 (sin parámetros obsoletos)
+    try:
+        browser = Browser(
+            headless=False,
+            extra_chromium_args=["--no-sandbox", "--disable-dev-shm-usage"]
+        )
+        logging.info("Navegador configurado correctamente.")
+    except Exception as e:
+        logging.error(f"Error al inicializar el navegador: {e}")
 
     # Inicialización del bot de Telegram
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
