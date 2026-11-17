@@ -1,6 +1,6 @@
-git+https://github.com/browser-use/browser-use.git
-langchain-google-genai
-langchain-openai
+telegram
 python-telegram-bot
+browser-use
+langchain-google-genai
 requests
 playwright
