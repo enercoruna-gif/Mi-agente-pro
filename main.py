@@ -21,8 +21,8 @@ CHAT_HISTORY_FILE = "chat_history.json"
 
 # --- DICCIONARIO DE MODELOS VIGENTES ---
 AVAILABLE_MODELS = {
-    "lite": "gemini-3.8-flash",
-    "flash": "gemini-3.8-flash",
+    "lite": "gemini-2.5-flash",
+    "flash": "gemini-2.5-flash",
     "pro": "gemini-pro"
 }
 
