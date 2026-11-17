@@ -8,23 +8,19 @@ chmod 1777 /tmp/.X11-unix
 # Limpiar bloqueos anteriores del servidor X
 rm -f /tmp/.X99-lock
 
-# 1. Iniciar servidor gráfico virtual Xvfb
+# 1. Iniciar servidor gráfico virtual Xvfb en el display :99
 Xvfb :99 -screen 0 1280x800x24 &
 sleep 2
 
-# 2. Iniciar gestor de ventanas Fluxbox
-fluxbox &
-sleep 1
-
-# 3. Iniciar x11vnc en segundo plano con -nopw
+# 2. Iniciar x11vnc directamente (sin gestores de ventanas pesados que ensucien los logs)
 x11vnc -display :99 -nopw -forever -shared -rfbport 5900 &
 sleep 1
 
-# 4. Iniciar servidor noVNC / websockify en el puerto 10000 requerido por Render
+# 3. Iniciar servidor noVNC / websockify en el puerto 10000 requerido por Render
 websockify --web=/usr/share/novnc/ 10000 localhost:5900 &
 sleep 2
 
-echo "Entorno gráfico listo. Arrancando el bot de Telegram..."
+echo "Entorno gráfico y VNC listos. Arrancando el bot de Python..."
 
-# 5. Ejecutar Python de forma normal (sin exec) para que el script se quede corriendo y escuche Telegram
+# 4. Ejecutar Python en primer plano para ver los logs en tiempo real
 python3 main.py
