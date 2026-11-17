@@ -12,7 +12,7 @@ rm -f /tmp/.X99-lock
 Xvfb :99 -screen 0 1280x800x24 &
 sleep 2
 
-# 2. Iniciar x11vnc directamente (sin gestores de ventanas pesados que ensucien los logs)
+# 2. Iniciar x11vnc limpio sin autenticación ni ruidos en los logs
 x11vnc -display :99 -nopw -forever -shared -rfbport 5900 &
 sleep 1
 
