@@ -111,7 +111,6 @@ def obtener_llm_agente(indice: int):
 # --- 4. INICIALIZAR NAVEGADOR ---
 cargar_cookies_desde_github()
 browser = Browser(
-    config=BrowserConfig(
         headless=False,
         cookies_file=COOKIES_FILE,
         extra_chromium_args=["--no-sandbox", "--disable-dev-shm-usage"]
