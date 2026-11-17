@@ -60,7 +60,7 @@ def guardar_datos():
     except Exception as e:
         logging.error(f"Error al guardar datos en disco: {e}")
 
-# --- VERIFICACIÓN LOCAL DE COOKIES (SIN LLAMADAS A GITHUB) ---
+# --- VERIFICACIÓN LOCAL DE COOKIES ---
 def verificar_cookies_locales():
     if os.path.exists(COOKIES_FILE):
         logging.info("✅ Archivo cookies.json detectado localmente en el proyecto.")
@@ -210,4 +210,43 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"💭 Pensando con *{current_model_key.upper()}*...")
         try:
-            
+            prompt_chat = f"""
+            Eres un asistente ejecutivo y de estrategia empresarial avanzado (estilo Grok).
+            {contexto_corporativo}
+            HISTORIAL:
+            {historial_reciente}
+            USUARIO:
+            {texto_usuario}
+            """
+            respuesta_bot = llm_actual.invoke(prompt_chat).content
+            await update.message.reply_text(respuesta_bot)
+        except Exception as e:
+            logging.error(f"Error en chat: {e}")
+            respuesta_bot = f"❌ Error: {e}"
+            await update.message.reply_text(respuesta_bot)
+
+    historial_conversacion.append({"rol": "Usuario", "texto": texto_usuario})
+    historial_conversacion.append({"rol": "Asistente", "texto": respuesta_bot})
+    guardar_datos()
+
+def main():
+    if not TELEGRAM_TOKEN:
+        logging.critical("¡Falta el TELEGRAM_TOKEN!")
+        return
+
+    logging.info("Iniciando bot...")
+    verificar_cookies_locales()
+    cargar_datos()
+
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("modelo", cambiar_modelo))
+    app.add_handler(CommandHandler("memoria", ver_memoria))
+    app.add_handler(CommandHandler("olvidar", olvidar_memoria))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), manejar_mensaje))
+
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
