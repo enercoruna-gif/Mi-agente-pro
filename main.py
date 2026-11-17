@@ -22,10 +22,10 @@ COOKIES_FILE = "cookies.json"
 MEMORY_FILE = "empresa_memoria.json"
 CHAT_HISTORY_FILE = "chat_history.json"
 
-# --- DICCIONARIO DE MODELOS DE TRES NIVELES ---
+# --- DICCIONARIO DE MODELOS ACTUALIZADO ---
 AVAILABLE_MODELS = {
-    "lite": "gemini-2.5-flash-lite",
-    "flash": "gemini-flash",
+    "lite": "gemini-2.5-flash",   # Usamos flash como base estable y disponible
+    "flash": "gemini-2.5-flash",
     "pro": "gemini-pro"
 }
 
@@ -35,7 +35,7 @@ empresa_memoria = {}
 historial_conversacion = []
 
 def obtener_llm_activo():
-    model_name = AVAILABLE_MODELS.get(current_model_key, "gemini-flash")
+    model_name = AVAILABLE_MODELS.get(current_model_key, "gemini-2.5-flash")
     return ChatGoogleGenerativeAI(model=model_name, google_api_key=GEMINI_API_KEY)
 
 def cargar_datos():
@@ -169,9 +169,10 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     texto_usuario = update.message.text
+    respuesta_bot = "Error procesando la solicitud."
 
     try:
-        analizador_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", google_api_key=GEMINI_API_KEY)
+        analizador_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GEMINI_API_KEY)
         prompt_analisis = f"""
         Analiza el mensaje del usuario. Si contiene información clave de su empresa, directrices o plantillas a recordar, responde estrictamente en JSON: {{"clave": "nombre_corto", "contenido": "texto"}}
         Si no hay nada relevante, responde exactamente: NADA.
@@ -189,7 +190,7 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error(f"Error en auto-memoria: {e}")
 
     try:
-        router_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", google_api_key=GEMINI_API_KEY)
+        router_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GEMINI_API_KEY)
         prompt_router = f"""
         Clasifica la petición en: NAVEGACION (si pide entrar a una web, buscar leads, hacer acciones visuales) o CHAT (si es charla, redactar correos o estrategia).
         Responde SOLAMENTE NAVEGACION o CHAT.
@@ -219,7 +220,8 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"✨ **Resultado web:**\n\n{respuesta_bot}")
         except Exception as e:
             logging.error(f"Error en navegador: {e}")
-            await update.message.reply_text(f"❌ Error ejecutando la tarea web: {e}")
+            respuesta_bot = f"❌ Error ejecutando la tarea web: {e}"
+            await update.message.reply_text(respuesta_bot)
     else:
         await update.message.reply_text(f"💭 Pensando con *{current_model_key.upper()}*...")
         try:
@@ -235,7 +237,8 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(respuesta_bot)
         except Exception as e:
             logging.error(f"Error en chat: {e}")
-            await update.message.reply_text(f"❌ Error: {e}")
+            respuesta_bot = f"❌ Error: {e}"
+            await update.message.reply_text(respuesta_bot)
 
     historial_conversacion.append({"rol": "Usuario", "texto": texto_usuario})
     historial_conversacion.append({"rol": "Asistente", "texto": respuesta_bot})
